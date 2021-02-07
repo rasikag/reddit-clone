@@ -84,6 +84,7 @@ export class UserResolver {
       }
     }
     
+    
     return { user };
   }
 
@@ -91,7 +92,7 @@ export class UserResolver {
   @Mutation(() => UserResponse)
   async login(
     @Arg("options") options: UsernamePasswordInput,
-    @Ctx() { em }: RedditDbContext
+    @Ctx() { em,req }: RedditDbContext
   ): Promise<UserResponse> {
     // we add a promise because if we need to handle the error
     const user = await em.findOne(User, { username: options.username });
@@ -119,6 +120,7 @@ export class UserResolver {
         ],
       };
     }
+    req.session.userId = user.id;
     return {
       user,
     };
