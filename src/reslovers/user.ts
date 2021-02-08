@@ -65,6 +65,7 @@ export class UserResolver {
       };
     }
     const hashedPassword = await argon2.hash(options.password);
+    console.log(hashedPassword)
     const user = em.create(User, {
       username: options.username,
       password: hashedPassword,

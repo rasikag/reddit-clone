@@ -16,7 +16,7 @@ import { RedditDbContext } from "./types";
 
 const main = async () => {
   const orm = await MikroORM.init(microConfig);
-  // run migration
+  // run migration 
   await orm.getMigrator().up();
 
   const port = 4001;
@@ -50,7 +50,7 @@ const main = async () => {
       resolvers: [HelloResolver, PostResolver, UserResolver],
       validate: false,
     }),
-    context: ({ req, res }): RedditDbContext => ({ em: orm.em, req, res }),
+    context: ({ req, res }: RedditDbContext) => ({ em: orm.em, req, res }),
   });
 
   apolloServer.applyMiddleware({ app });
