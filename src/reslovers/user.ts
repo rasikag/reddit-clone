@@ -7,6 +7,7 @@ import {
   InputType,
   Mutation,
   ObjectType,
+  Query,
   Resolver,
 } from "type-graphql";
 import argon2 from "argon2";
@@ -38,6 +39,16 @@ class FieldError {
 
 @Resolver()
 export class UserResolver {
+  @Query(() => User, { nullable: true })
+  async me(@Ctx() { em, req }: RedditDbContext) {
+    if (!req.session.userId) {
+      return null;
+    }
+
+    const user = em.findOne(User, { id: req.session.userId });
+    return user;
+  }
+
   @Mutation(() => UserResponse)
   async register(
     @Arg("options") options: UsernamePasswordInput,
@@ -72,19 +83,18 @@ export class UserResolver {
     try {
       await em.persistAndFlush(user);
     } catch (err) {
-      if (err.code === "23505"){
+      if (err.code === "23505") {
         return {
-          errors:[
+          errors: [
             {
-              field:"username",
-              message: "username already taken"
-            }
-          ]
-        }
+              field: "username",
+              message: "username already taken",
+            },
+          ],
+        };
       }
     }
-    
-    
+
     return { user };
   }
 
@@ -92,7 +102,7 @@ export class UserResolver {
   @Mutation(() => UserResponse)
   async login(
     @Arg("options") options: UsernamePasswordInput,
-    @Ctx() { em,req }: RedditDbContext
+    @Ctx() { em, req }: RedditDbContext
   ): Promise<UserResponse> {
     // we add a promise because if we need to handle the error
     const user = await em.findOne(User, { username: options.username });
