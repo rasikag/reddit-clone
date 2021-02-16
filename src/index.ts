@@ -14,9 +14,11 @@ import connectRedis from "connect-redis";
 import { __prod__ } from "./constants";
 import { RedditDbContext } from "./types";
 
+import cors from "cors";
+
 const main = async () => {
   const orm = await MikroORM.init(microConfig);
-  // run migration 
+  // run migration
   await orm.getMigrator().up();
 
   const port = 4001;
@@ -26,6 +28,13 @@ const main = async () => {
 
   const RedisStore = connectRedis(session);
   const redisClient = redis.createClient();
+
+  app.use(
+    cors({
+      origin: "http://localhost:3000",
+      credentials: true,
+    })
+  );
 
   app.use(
     session({
@@ -53,7 +62,7 @@ const main = async () => {
     context: ({ req, res }: RedditDbContext) => ({ em: orm.em, req, res }),
   });
 
-  apolloServer.applyMiddleware({ app });
+  apolloServer.applyMiddleware({ app, cors: false });
 
   // app.get("/", (req, res) => {
   //   res.json({ hello: "world" });

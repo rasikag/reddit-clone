@@ -52,7 +52,7 @@ export class UserResolver {
   @Mutation(() => UserResponse)
   async register(
     @Arg("options") options: UsernamePasswordInput,
-    @Ctx() { em }: RedditDbContext
+    @Ctx() { em, req }: RedditDbContext
   ): Promise<UserResponse> {
     if (options.username.length <= 2) {
       return {
@@ -95,6 +95,14 @@ export class UserResolver {
       }
     }
 
+    // store user id session
+    // this will set a cookie on the user
+    // keep them logged in
+
+    // TODO: Add a email client and send the verification email
+
+    req.session.userId = user.id;
+
     return { user };
   }
 
@@ -116,6 +124,7 @@ export class UserResolver {
         ],
       };
     }
+    
     const validatePassword = await argon2.verify(
       user.password,
       options.password
