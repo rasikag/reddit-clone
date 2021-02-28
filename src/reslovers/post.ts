@@ -1,11 +1,15 @@
 import { Post } from "../entities/Post";
 import { RedditDbContext } from "src/types";
 import { Arg, Ctx, Int, Mutation, Query, Resolver } from "type-graphql";
+// import { sleep } from "./sleep";
+
+
 
 @Resolver()
 export class PostResolver {
   @Query(() => [Post])
-  posts(@Ctx() { em }: RedditDbContext): Promise<Post[]> {
+  async posts(@Ctx() { em }: RedditDbContext): Promise<Post[]> {
+    // await sleep(3000);
     return em.find(Post, {});
   }
 

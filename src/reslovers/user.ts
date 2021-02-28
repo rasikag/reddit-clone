@@ -41,6 +41,11 @@ class FieldError {
 
 @Resolver()
 export class UserResolver {
+  @Mutation(() => Boolean)
+  async forgotPassword(@Arg("email") email: string, @Ctx() { em }: RedditDbContext) {
+    const user = await em.findAndCount
+  }
+
   @Query(() => User, { nullable: true })
   async me(@Ctx() { em, req }: RedditDbContext) {
     if (!req.session.userId) {

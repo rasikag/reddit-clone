@@ -15,8 +15,11 @@ import { COOKIE_NAME, __prod__ } from "./constants";
 import { RedditDbContext } from "./types";
 
 import cors from "cors";
+import { sendEmail } from "./utils/sendEmail";
 
 const main = async () => {
+
+  
   const orm = await MikroORM.init(microConfig);
   // run migration
   await orm.getMigrator().up();
