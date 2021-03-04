@@ -8,19 +8,20 @@ import { HelloResolver } from "./reslovers/Hello";
 import { PostResolver } from "./reslovers/post";
 import { UserResolver } from "./reslovers/user";
 
-import redis from "redis";
+import Redis from "ioredis";
 import session from "express-session";
 import connectRedis from "connect-redis";
 import { COOKIE_NAME, __prod__ } from "./constants";
 import { RedditDbContext } from "./types";
 
 import cors from "cors";
-import { sendEmail } from "./utils/sendEmail";
+// import { sendEmail } from "./utils/sendEmail";
+// import { User } from "./entities/User";
 
 const main = async () => {
-
-  
+  // sendEmail("rasika@test.com", "hello");
   const orm = await MikroORM.init(microConfig);
+  // await orm.em.nativeDelete(User,{})
   // run migration
   await orm.getMigrator().up();
 
@@ -30,7 +31,8 @@ const main = async () => {
   const app = express();
 
   const RedisStore = connectRedis(session);
-  const redisClient = redis.createClient();
+  // const redis =  Redis();
+  const redis = new Redis();
 
   app.use(
     cors({
@@ -42,7 +44,7 @@ const main = async () => {
   app.use(
     session({
       name: COOKIE_NAME,
-      store: new RedisStore({ client: redisClient, disableTouch: true }),
+      store: new RedisStore({ client: redis, disableTouch: true }),
       cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 365,
         httpOnly: true,
@@ -62,7 +64,7 @@ const main = async () => {
       resolvers: [HelloResolver, PostResolver, UserResolver],
       validate: false,
     }),
-    context: ({ req, res }: RedditDbContext) => ({ em: orm.em, req, res }),
+    context: ({ req, res }: RedditDbContext) => ({ em: orm.em, req, res, redis }),
   });
 
   apolloServer.applyMiddleware({ app, cors: false });

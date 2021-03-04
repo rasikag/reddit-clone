@@ -4,7 +4,6 @@ import {
   Arg,
   Ctx,
   Field,
-  InputType,
   Mutation,
   ObjectType,
   Query,
@@ -12,15 +11,12 @@ import {
 } from "type-graphql";
 import argon2 from "argon2";
 import { EntityManager } from "@mikro-orm/postgresql";
-import { COOKIE_NAME } from "../constants";
-
-@InputType()
-class UsernamePasswordInput {
-  @Field()
-  username: string;
-  @Field()
-  password: string;
-}
+import { COOKIE_NAME, FORGET_PASSWORD_PREFIX } from "../constants";
+import { UsernamePasswordInput } from "./UsernamePasswordInput";
+import { validateRegister } from "../utils/validateRegister";
+import { sendEmail } from "../utils/sendEmail";
+import { compareBuffers } from "@mikro-orm/core";
+import { v4 } from "uuid";
 
 @ObjectType()
 class UserResponse {
@@ -42,8 +38,30 @@ class FieldError {
 @Resolver()
 export class UserResolver {
   @Mutation(() => Boolean)
-  async forgotPassword(@Arg("email") email: string, @Ctx() { em }: RedditDbContext) {
-    const user = await em.findAndCount
+  async forgotPassword(
+    @Arg("email") email: string,
+    @Ctx() { em, redis }: RedditDbContext
+  ) {
+    const user = await em.findOne(User, { email });
+    if (!user) {
+      return true;
+    }
+    const token = v4();
+    await redis.set(
+      FORGET_PASSWORD_PREFIX + token,
+      user.id,
+      "ex",
+      1000 * 60 * 60 * 24 * 3
+    );
+
+    await sendEmail(
+      email,
+      '<a href="http://localhost:3001/reset-password/${token}">click here to reset password</a>'
+    );
+    console.log(em);
+    console.log(email);
+
+    return true;
   }
 
   @Query(() => User, { nullable: true })
@@ -61,27 +79,11 @@ export class UserResolver {
     @Arg("options") options: UsernamePasswordInput,
     @Ctx() { em, req }: RedditDbContext
   ): Promise<UserResponse> {
-    if (options.username.length <= 2) {
-      return {
-        errors: [
-          {
-            field: "username",
-            message: "length must be greater than 2",
-          },
-        ],
-      };
+    const errors = validateRegister(options);
+    if (errors) {
+      return { errors };
     }
 
-    if (options.password.length <= 2) {
-      return {
-        errors: [
-          {
-            field: "password",
-            message: "length must be greater than 2",
-          },
-        ],
-      };
-    }
     const hashedPassword = await argon2.hash(options.password);
     // const user = em.create(User, {
     //   username: options.username,
@@ -94,6 +96,7 @@ export class UserResolver {
         .getKnexQuery()
         .insert({
           username: options.username,
+          email: options.email,
           password: hashedPassword,
           created_at: new Date(),
           updated_at: new Date(),
@@ -127,26 +130,29 @@ export class UserResolver {
   // Question: Why this is a mutation?
   @Mutation(() => UserResponse)
   async login(
-    @Arg("options") options: UsernamePasswordInput,
+    @Arg("usernameOrEmail") usernameOrEmail: string,
+    @Arg("password") password: string,
     @Ctx() { em, req }: RedditDbContext
   ): Promise<UserResponse> {
     // we add a promise because if we need to handle the error
-    const user = await em.findOne(User, { username: options.username });
+    const user = await em.findOne(
+      User,
+      usernameOrEmail.includes("@")
+        ? { email: usernameOrEmail }
+        : { username: usernameOrEmail }
+    );
     if (!user) {
       return {
         errors: [
           {
-            field: "username",
-            message: "username doesn't exist",
+            field: "usernameOrEmail",
+            message: "username or email doesn't exist",
           },
         ],
       };
     }
 
-    const validatePassword = await argon2.verify(
-      user.password,
-      options.password
-    );
+    const validatePassword = await argon2.verify(user.password, password);
 
     if (!validatePassword) {
       return {
