@@ -10,7 +10,7 @@ import { UserResolver } from "./reslovers/user";
 
 import Redis from "ioredis";
 import session from "express-session";
-import connectRedis from "connect-redis";
+import connectRedis, { RedisStoreOptions } from "connect-redis";
 import { COOKIE_NAME, __prod__ } from "./constants";
 import { RedditDbContext } from "./types";
 
@@ -40,11 +40,12 @@ const main = async () => {
       credentials: true,
     })
   );
-
+  
+  const options: RedisStoreOptions =  { disableTouch: true, client:redis as any};
   app.use(
     session({
       name: COOKIE_NAME,
-      store: new RedisStore({ client: redis, disableTouch: true }),
+      store: new RedisStore(options),
       cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 365,
         httpOnly: true,
@@ -64,7 +65,12 @@ const main = async () => {
       resolvers: [HelloResolver, PostResolver, UserResolver],
       validate: false,
     }),
-    context: ({ req, res }: RedditDbContext) => ({ em: orm.em, req, res, redis }),
+    context: ({ req, res }: RedditDbContext) => ({
+      em: orm.em,
+      req,
+      res,
+      redis,
+    }),
   });
 
   apolloServer.applyMiddleware({ app, cors: false });
