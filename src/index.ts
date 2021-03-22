@@ -1,29 +1,39 @@
 import "reflect-metadata";
-import { MikroORM } from "@mikro-orm/core";
-import microConfig from "./mikro-orm.config";
 import express from "express";
 import { ApolloServer } from "apollo-server-express";
 import { buildSchema } from "type-graphql";
 import { HelloResolver } from "./reslovers/Hello";
 import { PostResolver } from "./reslovers/post";
 import { UserResolver } from "./reslovers/user";
+import { createConnection } from "typeorm";
 
 import Redis from "ioredis";
 import session from "express-session";
 import connectRedis, { RedisStoreOptions } from "connect-redis";
 import { COOKIE_NAME, __prod__ } from "./constants";
 import { RedditDbContext } from "./types";
+import mySecretKeys from "./secretkeys";
 
 import cors from "cors";
+import { Post } from "./entities/Post";
+import { User } from "./entities/User";
 // import { sendEmail } from "./utils/sendEmail";
 // import { User } from "./entities/User";
 
 const main = async () => {
   // sendEmail("rasika@test.com", "hello");
-  const orm = await MikroORM.init(microConfig);
-  // await orm.em.nativeDelete(User,{})
-  // run migration
-  await orm.getMigrator().up();
+
+  const conn = await createConnection({
+    type: "postgres",
+    database: "redditdev03",
+    username: "postgres",
+    password: mySecretKeys.myDbPassword,
+    logging: true,
+    synchronize: true,
+    entities: [Post, User],
+  } as any);
+
+  // await Post.delete({})
 
   const port = 4001;
 
@@ -40,8 +50,11 @@ const main = async () => {
       credentials: true,
     })
   );
-  
-  const options: RedisStoreOptions =  { disableTouch: true, client:redis as any};
+
+  const options: RedisStoreOptions = {
+    disableTouch: true,
+    client: redis as any,
+  };
   app.use(
     session({
       name: COOKIE_NAME,
@@ -66,8 +79,6 @@ const main = async () => {
       validate: false,
     }),
     context: ({ req, res }: RedditDbContext) => ({
-      em: orm.em,
-      req,
       res,
       redis,
     }),

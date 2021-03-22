@@ -1,65 +1,68 @@
 import { Post } from "../entities/Post";
+import {
+  Arg,
+  Ctx,
+  Field,
+  InputType,
+  Mutation,
+  Query,
+  Resolver,
+  UseMiddleware,
+} from "type-graphql";
 import { RedditDbContext } from "src/types";
-import { Arg, Ctx, Int, Mutation, Query, Resolver } from "type-graphql";
+import { isAuth } from "../middleware/isAuth";
 // import { sleep } from "./sleep";
 
-
+@InputType()
+class PostInput {
+  @Field()
+  title: string;
+  @Field()
+  text: string;
+}
 
 @Resolver()
 export class PostResolver {
   @Query(() => [Post])
-  async posts(@Ctx() { em }: RedditDbContext): Promise<Post[]> {
+  async posts(): Promise<Post[]> {
     // await sleep(3000);
-    return em.find(Post, {});
+    return await Post.find();
   }
 
   // return a post or null
   @Query(() => Post, { nullable: true })
-  post(
-    @Arg("id", () => Int) id: number,
-    @Ctx() { em }: RedditDbContext
-  ): Promise<Post | null> {
-    return em.findOne(Post, { id });
+  post(@Arg("id") id: number): Promise<Post | undefined> {
+    return Post.findOne(id);
   }
 
   // @Arg("title", () => Int) title: string,
   @Mutation(() => Post)
+  @UseMiddleware(isAuth)
   async createPost(
-    @Arg("title") title: string,
-    @Ctx() { em }: RedditDbContext
+    @Arg("input") input: PostInput,
+    @Ctx() { req }: RedditDbContext
   ): Promise<Post> {
-    const post = em.create(Post, { title });
-    await em.persistAndFlush(post);
-    return post;
+    return Post.create({ ...input, creatorId: req.session.userId }).save();
   }
 
   @Mutation(() => Post)
   async updatePost(
-    @Arg("id", () => Int) id: number,
-    @Arg("title", () => String, { nullable: true }) title: string,
-    @Ctx() { em }: RedditDbContext
+    @Arg("id") id: number,
+    @Arg("title", () => String, { nullable: true }) title: string
   ): Promise<Post | null> {
-    const post = await em.findOne(Post, { id });
+    const post = await Post.findOne(id);
     if (!post) {
       return null;
     }
     if (typeof title !== "undefined") {
-      post.title = title;
-      await em.persistAndFlush(post);
+      await Post.update({ id }, { title });
     }
     return post;
   }
 
   @Mutation(() => Boolean)
-  async deletePost(
-    @Arg("id", () => Int) id: number,
-    @Ctx() { em }: RedditDbContext
-  ): Promise<boolean> {
-    try {
-      await em.nativeDelete(Post, { id });
-      return true;
-    } catch (error) {
-      return false;
-    }
+  async deletePost(@Arg("id") id: number): Promise<boolean> {
+    await Post.delete(id);
+    return true;
   }
 }
