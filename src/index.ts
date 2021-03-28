@@ -13,6 +13,7 @@ import connectRedis, { RedisStoreOptions } from "connect-redis";
 import { COOKIE_NAME, __prod__ } from "./constants";
 import { RedditDbContext } from "./types";
 import mySecretKeys from "./secretkeys";
+import path from "path";
 
 import cors from "cors";
 import { Post } from "./entities/Post";
@@ -31,9 +32,12 @@ const main = async () => {
     logging: true,
     synchronize: true,
     entities: [Post, User],
+    migrations: [path.join(__dirname, "./migrations/*")],
   } as any);
 
   // await Post.delete({})
+
+  await conn.runMigrations();
 
   const port = 4001;
 
@@ -79,6 +83,7 @@ const main = async () => {
       validate: false,
     }),
     context: ({ req, res }: RedditDbContext) => ({
+      req,
       res,
       redis,
     }),
