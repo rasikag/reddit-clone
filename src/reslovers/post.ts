@@ -16,6 +16,7 @@ import {
 import { RedditDbContext } from "src/types";
 import { isAuth } from "../middleware/isAuth";
 import { getConnection } from "typeorm";
+import { Upvote } from "../entities/Upvote";
 // import { sleep } from "./sleep";
 
 @InputType()
@@ -41,6 +42,42 @@ export class PostResolver {
     return root.text.slice(0, 50);
   }
 
+  @Mutation(() => Boolean)
+  @UseMiddleware(isAuth)
+  async vote(
+    @Arg("postId", () => Int) postId: number,
+    @Arg("value", () => Int) value: number,
+    @Ctx() { req }: RedditDbContext
+  ) {
+    const isUpvote = value !== -1;
+    const realValue = isUpvote ? 1 : -1;
+    const { userId } = req.session;
+
+    await Upvote.insert({
+      userId,
+      postId,
+      value: realValue,
+    });
+
+    await getConnection().query(
+      `
+      START TRANSACTION;
+
+      INSERT INTO upvote ("userId", "postId", value)
+      VALUES (${userId}, ${postId}, ${realValue});
+
+      UPDATE post p 
+      SET p.points = p.points + ${realValue}
+      where p.id = ${postId};
+      
+
+      COMMIT;
+      `
+    );
+
+    return true;
+  }
+
   @Query(() => PaginatedPosts)
   async posts(
     @Arg("limit", () => Int) limit: number,
@@ -50,19 +87,48 @@ export class PostResolver {
     // using query builder
     const realLimit = Math.min(50, limit);
     const realLimitPlusOne = realLimit + 1;
-    const qb = getConnection()
-      .getRepository(Post)
-      .createQueryBuilder("p")
-      .orderBy('"createdAt"', "DESC")
-      .take(realLimitPlusOne);
+
+    const replacement: any[] = [realLimitPlusOne];
+
+    console.log("cursor: ", cursor);
 
     if (cursor) {
-      qb.where('"createdAt" < :cursor', {
-        cursor: new Date(parseInt(cursor)),
-      });
+      replacement.push(new Date(parseInt(cursor)));
     }
 
-    const posts = await qb.getMany();
+    const posts = await getConnection().query(
+      `
+      SELECT p.*,
+      json_build_object(
+        'id', u.id,
+        'username', u.username,
+        'email', u.email
+      ) creator
+      FROM post p 
+      INNER JOIN public.user u on u.id = p."creatorId"
+      ${cursor ? ` WHERE  p."createdAt" < $2` : ""}
+      ORDER BY p."createdAt" DESC
+      LIMIT $1
+      `,
+      replacement
+    );
+
+    // const qb = getConnection()
+    //   .getRepository(Post)
+    //   .createQueryBuilder("p")
+    //   .innerJoinAndSelect("p.creator", "u", 'u.id = p."creatorId"')
+    //   .orderBy('p."createdAt"', "DESC")
+    //   .take(realLimitPlusOne);
+
+    // if (cursor) {
+    //   qb.where('p."createdAt" < :cursor', {
+    //     cursor: new Date(parseInt(cursor)),
+    //   });
+    // }
+
+    // const posts = await qb.getMany();
+
+    console.log(posts);
 
     return {
       posts: posts.slice(0, realLimit),

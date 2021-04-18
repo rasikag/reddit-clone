@@ -18,6 +18,7 @@ import path from "path";
 import cors from "cors";
 import { Post } from "./entities/Post";
 import { User } from "./entities/User";
+import { Upvote } from "./entities/UpVote";
 // import { sendEmail } from "./utils/sendEmail";
 // import { User } from "./entities/User";
 
@@ -31,7 +32,7 @@ const main = async () => {
     password: mySecretKeys.myDbPassword,
     logging: true,
     synchronize: true,
-    entities: [Post, User],
+    entities: [Post, User, Upvote],
     migrations: [path.join(__dirname, "./migrations/*")],
   } as any);
 
