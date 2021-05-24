@@ -18,7 +18,7 @@ import path from "path";
 import cors from "cors";
 import { Post } from "./entities/Post";
 import { User } from "./entities/User";
-import { Upvote } from "./entities/UpVote";
+import { Upvote } from "./entities/Upvote";
 // import { sendEmail } from "./utils/sendEmail";
 // import { User } from "./entities/User";
 
